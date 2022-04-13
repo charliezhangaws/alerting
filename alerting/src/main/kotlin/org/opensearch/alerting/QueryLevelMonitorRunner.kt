@@ -29,8 +29,7 @@ object QueryLevelMonitorRunner : MonitorRunner {
         periodStart: Instant,
         periodEnd: Instant,
         dryrun: Boolean
-    ):
-        MonitorRunResult<QueryLevelTriggerRunResult> {
+    ): MonitorRunResult<QueryLevelTriggerRunResult> {
         val roles = MonitorRunnerService.getRolesForMonitor(monitor)
         logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
@@ -41,7 +40,7 @@ object QueryLevelMonitorRunner : MonitorRunner {
         var monitorResult = MonitorRunResult<QueryLevelTriggerRunResult>(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             monitorCtx.alertIndices!!.createOrUpdateAlertIndex()
-            monitorCtx.alertIndices!!.createOrUpdateInitialHistoryIndex()
+            monitorCtx.alertIndices!!.createOrUpdateInitialAlertHistoryIndex()
             monitorCtx.alertService!!.loadCurrentAlertsForQueryLevelMonitor(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
@@ -101,8 +100,9 @@ object QueryLevelMonitorRunner : MonitorRunner {
                 return ActionRunResult(action.id, action.name, mapOf(), true, null, null)
             }
             val actionOutput = mutableMapOf<String, String>()
-            actionOutput[Action.SUBJECT] = if (action.subjectTemplate != null) MonitorRunnerService
-                .compileTemplate(action.subjectTemplate, ctx) else ""
+            actionOutput[Action.SUBJECT] = if (action.subjectTemplate != null)
+                MonitorRunnerService.compileTemplate(action.subjectTemplate, ctx)
+            else ""
             actionOutput[Action.MESSAGE] = MonitorRunnerService.compileTemplate(action.messageTemplate, ctx)
             if (Strings.isNullOrEmpty(actionOutput[Action.MESSAGE])) {
                 throw IllegalStateException("Message content missing in the Destination with id: ${action.destinationId}")

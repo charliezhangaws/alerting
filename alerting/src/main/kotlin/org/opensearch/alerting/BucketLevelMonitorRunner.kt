@@ -36,8 +36,7 @@ object BucketLevelMonitorRunner : MonitorRunner {
         periodStart: Instant,
         periodEnd: Instant,
         dryrun: Boolean
-    ):
-        MonitorRunResult<BucketLevelTriggerRunResult> {
+    ): MonitorRunResult<BucketLevelTriggerRunResult> {
         val roles = MonitorRunnerService.getRolesForMonitor(monitor)
         logger.debug("Running monitor: ${monitor.name} with roles: $roles Thread: ${Thread.currentThread().name}")
 
@@ -48,7 +47,7 @@ object BucketLevelMonitorRunner : MonitorRunner {
         var monitorResult = MonitorRunResult<BucketLevelTriggerRunResult>(monitor.name, periodStart, periodEnd)
         val currentAlerts = try {
             monitorCtx.alertIndices!!.createOrUpdateAlertIndex()
-            monitorCtx.alertIndices!!.createOrUpdateInitialHistoryIndex()
+            monitorCtx.alertIndices!!.createOrUpdateInitialAlertHistoryIndex()
             monitorCtx.alertService!!.loadCurrentAlertsForBucketLevelMonitor(monitor)
         } catch (e: Exception) {
             // We can't save ERROR alerts to the index here as we don't know if there are existing ACTIVE alerts
@@ -160,8 +159,8 @@ object BucketLevelMonitorRunner : MonitorRunner {
         // in favor of just using the currentAlerts as-is.
         currentAlerts.forEach { (trigger, keysToAlertsMap) ->
             if (triggerResults[trigger.id]?.error == null)
-                nextAlerts[trigger.id]
-                    ?.get(AlertCategory.COMPLETED)?.addAll(monitorCtx.alertService!!.convertToCompletedAlerts(keysToAlertsMap))
+                nextAlerts[trigger.id]?.get(AlertCategory.COMPLETED)
+                    ?.addAll(monitorCtx.alertService!!.convertToCompletedAlerts(keysToAlertsMap))
         }
 
         for (trigger in monitor.triggers) {
@@ -275,7 +274,9 @@ object BucketLevelMonitorRunner : MonitorRunner {
                 monitorCtx.alertService!!.saveAlerts(updatedAlerts, monitorCtx.retryPolicy!!, allowUpdatingAcknowledgedAlert = false)
                 // Save any COMPLETED Alerts that were not covered in updatedAlerts
                 monitorCtx.alertService!!.saveAlerts(
-                    completedAlertsToUpdate.toList(), monitorCtx.retryPolicy!!, allowUpdatingAcknowledgedAlert = false
+                    completedAlertsToUpdate.toList(),
+                    monitorCtx.retryPolicy!!,
+                    allowUpdatingAcknowledgedAlert = false
                 )
             }
         }
@@ -291,16 +292,20 @@ object BucketLevelMonitorRunner : MonitorRunner {
     ): ActionRunResult {
         return try {
             val actionOutput = mutableMapOf<String, String>()
-            actionOutput[Action.SUBJECT] = if (action.subjectTemplate != null) MonitorRunnerService
-                .compileTemplate(action.subjectTemplate, ctx) else ""
+            actionOutput[Action.SUBJECT] = if (action.subjectTemplate != null)
+                MonitorRunnerService.compileTemplate(action.subjectTemplate, ctx)
+            else ""
             actionOutput[Action.MESSAGE] = MonitorRunnerService.compileTemplate(action.messageTemplate, ctx)
             if (Strings.isNullOrEmpty(actionOutput[Action.MESSAGE])) {
                 throw IllegalStateException("Message content missing in the Destination with id: ${action.destinationId}")
             }
             if (!dryrun) {
                 withContext(Dispatchers.IO) {
-                    val destination = AlertingConfigAccessor
-                        .getDestinationInfo(monitorCtx.client!!, monitorCtx.xContentRegistry!!, action.destinationId)
+                    val destination = AlertingConfigAccessor.getDestinationInfo(
+                        monitorCtx.client!!,
+                        monitorCtx.xContentRegistry!!,
+                        action.destinationId
+                    )
                     if (!destination.isAllowed(monitorCtx.allowList)) {
                         throw IllegalStateException("Monitor contains a Destination type that is not allowed: ${destination.type}")
                     }
@@ -344,7 +349,7 @@ object BucketLevelMonitorRunner : MonitorRunner {
         if (totalActionableAlertCount > monitorCtx.maxActionableAlertCount) {
             logger.debug(
                 "The total actionable alerts for trigger [$triggerId] in monitor [$monitorId] is [$totalActionableAlertCount] " +
-                    "which exceeds the maximum of [$(monitorCtx.maxActionableAlertCount)]. " +
+                    "which exceeds the maximum of [${monitorCtx.maxActionableAlertCount}]. " +
                     "Defaulting to [${ActionExecutionScope.Type.PER_EXECUTION}] for action execution."
             )
             return true

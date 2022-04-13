@@ -108,7 +108,8 @@ object MonitorRunnerService : JobRunner, CoroutineScope, AbstractLifecycleCompon
     // Must be called after registerClusterService and registerSettings in AlertingPlugin
     fun registerConsumers(): MonitorRunnerService {
         monitorCtx.retryPolicy = BackoffPolicy.constantBackoff(
-            ALERT_BACKOFF_MILLIS.get(monitorCtx.settings), ALERT_BACKOFF_COUNT.get(monitorCtx.settings)
+            ALERT_BACKOFF_MILLIS.get(monitorCtx.settings),
+            ALERT_BACKOFF_COUNT.get(monitorCtx.settings)
         )
         monitorCtx.clusterService!!.clusterSettings.addSettingsUpdateConsumer(ALERT_BACKOFF_MILLIS, ALERT_BACKOFF_COUNT) { millis, count ->
             monitorCtx.retryPolicy = BackoffPolicy.constantBackoff(millis, count)
@@ -116,11 +117,11 @@ object MonitorRunnerService : JobRunner, CoroutineScope, AbstractLifecycleCompon
 
         monitorCtx.moveAlertsRetryPolicy =
             BackoffPolicy.exponentialBackoff(
-                MOVE_ALERTS_BACKOFF_MILLIS.get(monitorCtx.settings), MOVE_ALERTS_BACKOFF_COUNT.get(monitorCtx.settings)
+                MOVE_ALERTS_BACKOFF_MILLIS.get(monitorCtx.settings),
+                MOVE_ALERTS_BACKOFF_COUNT.get(monitorCtx.settings)
             )
-        monitorCtx.clusterService!!.clusterSettings.addSettingsUpdateConsumer(
-            MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT
-        ) { millis, count ->
+        monitorCtx.clusterService!!.clusterSettings.addSettingsUpdateConsumer(MOVE_ALERTS_BACKOFF_MILLIS, MOVE_ALERTS_BACKOFF_COUNT) {
+            millis, count ->
             monitorCtx.moveAlertsRetryPolicy = BackoffPolicy.exponentialBackoff(millis, count)
         }
 
@@ -143,9 +144,8 @@ object MonitorRunnerService : JobRunner, CoroutineScope, AbstractLifecycleCompon
     // To be safe, call this last as it depends on a number of other components being registered beforehand (client, settings, etc.)
     fun registerDestinationSettings(): MonitorRunnerService {
         monitorCtx.destinationSettings = loadDestinationSettings(monitorCtx.settings!!)
-        monitorCtx.destinationContextFactory = DestinationContextFactory(
-            monitorCtx.client!!, monitorCtx.xContentRegistry!!, monitorCtx.destinationSettings!!
-        )
+        monitorCtx.destinationContextFactory =
+            DestinationContextFactory(monitorCtx.client!!, monitorCtx.xContentRegistry!!, monitorCtx.destinationSettings!!)
         return this
     }
 
@@ -175,7 +175,7 @@ object MonitorRunnerService : JobRunner, CoroutineScope, AbstractLifecycleCompon
         launch {
             try {
                 monitorCtx.moveAlertsRetryPolicy!!.retry(logger) {
-                    if (monitorCtx.alertIndices!!.isInitialized()) {
+                    if (monitorCtx.alertIndices!!.isAlertInitialized()) {
                         moveAlerts(monitorCtx.client!!, job.id, job)
                     }
                 }
@@ -189,7 +189,7 @@ object MonitorRunnerService : JobRunner, CoroutineScope, AbstractLifecycleCompon
         launch {
             try {
                 monitorCtx.moveAlertsRetryPolicy!!.retry(logger) {
-                    if (monitorCtx.alertIndices!!.isInitialized()) {
+                    if (monitorCtx.alertIndices!!.isAlertInitialized()) {
                         moveAlerts(monitorCtx.client!!, jobId, null)
                     }
                 }

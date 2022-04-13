@@ -5,6 +5,7 @@
 
 package org.opensearch.alerting.model
 
+import org.opensearch.alerting.core.model.DocLevelQuery
 import org.opensearch.alerting.elasticapi.instant
 import org.opensearch.common.io.stream.StreamInput
 import org.opensearch.common.io.stream.StreamOutput
@@ -21,61 +22,46 @@ import java.time.Instant
  */
 class Finding(
     val id: String = NO_ID,
-    val relatedDocId: String,
+    val relatedDocIds: List<String>,
     val monitorId: String,
     val monitorName: String,
     val index: String,
-    val queryId: String = NO_ID,
-    val queryTags: List<String>,
-    val severity: String,
-    val timestamp: Instant,
-    val triggerId: String?,
-    val triggerName: String?
+    val docLevelQueries: List<DocLevelQuery>,
+    val timestamp: Instant
 ) : Writeable, ToXContent {
+
     @Throws(IOException::class)
     constructor(sin: StreamInput) : this(
         id = sin.readString(),
-        relatedDocId = sin.readString(),
+        relatedDocIds = sin.readStringList(),
         monitorId = sin.readString(),
         monitorName = sin.readString(),
         index = sin.readString(),
-        queryId = sin.readString(),
-        queryTags = sin.readStringList(),
-        severity = sin.readString(),
-        timestamp = sin.readInstant(),
-        triggerId = sin.readOptionalString(),
-        triggerName = sin.readOptionalString()
+        docLevelQueries = sin.readList((DocLevelQuery)::readFrom),
+        timestamp = sin.readInstant()
     )
 
     fun asTemplateArg(): Map<String, Any?> {
         return mapOf(
             FINDING_ID_FIELD to id,
-            RELATED_DOC_ID_FIELD to relatedDocId,
+            RELATED_DOC_IDS_FIELD to relatedDocIds,
             MONITOR_ID_FIELD to monitorId,
             MONITOR_NAME_FIELD to monitorName,
             INDEX_FIELD to index,
-            QUERY_ID_FIELD to queryId,
-            QUERY_TAGS_FIELD to queryTags,
-            SEVERITY_FIELD to severity,
-            TIMESTAMP_FIELD to timestamp.toEpochMilli(),
-            TRIGGER_ID_FIELD to triggerId,
-            TRIGGER_NAME_FIELD to triggerName
+            QUERIES_FIELD to docLevelQueries,
+            TIMESTAMP_FIELD to timestamp.toEpochMilli()
         )
     }
 
     override fun toXContent(builder: XContentBuilder, params: ToXContent.Params): XContentBuilder {
         builder.startObject()
             .field(FINDING_ID_FIELD, id)
-            .field(RELATED_DOC_ID_FIELD, relatedDocId)
+            .field(RELATED_DOC_IDS_FIELD, relatedDocIds)
             .field(MONITOR_ID_FIELD, monitorId)
             .field(MONITOR_NAME_FIELD, monitorName)
             .field(INDEX_FIELD, index)
-            .field(QUERY_ID_FIELD, queryId)
-            .field(QUERY_TAGS_FIELD, queryTags.toTypedArray())
-            .field(SEVERITY_FIELD, severity)
-            .field(TIMESTAMP_FIELD, timestamp)
-            .field(TRIGGER_ID_FIELD, triggerId)
-            .field(TRIGGER_NAME_FIELD, triggerName)
+            .field(QUERIES_FIELD, docLevelQueries.toTypedArray())
+            .field(TIMESTAMP_FIELD, timestamp.toEpochMilli())
         builder.endObject()
         return builder
     }
@@ -83,45 +69,34 @@ class Finding(
     @Throws(IOException::class)
     override fun writeTo(out: StreamOutput) {
         out.writeString(id)
-        out.writeString(relatedDocId)
+        out.writeStringCollection(relatedDocIds)
         out.writeString(monitorId)
         out.writeString(monitorName)
         out.writeString(index)
-        out.writeString(queryId)
-        out.writeStringCollection(queryTags)
-        out.writeString(severity)
+        out.writeCollection(docLevelQueries)
         out.writeInstant(timestamp)
-        out.writeOptionalString(triggerId)
-        out.writeOptionalString(triggerName)
     }
 
     companion object {
         const val FINDING_ID_FIELD = "id"
-        const val RELATED_DOC_ID_FIELD = "related_doc_id"
+        const val RELATED_DOC_IDS_FIELD = "related_doc_ids"
         const val MONITOR_ID_FIELD = "monitor_id"
         const val MONITOR_NAME_FIELD = "monitor_name"
         const val INDEX_FIELD = "index"
-        const val QUERY_ID_FIELD = "query_id"
-        const val QUERY_TAGS_FIELD = "query_tags"
-        const val SEVERITY_FIELD = "severity"
+        const val QUERIES_FIELD = "queries"
         const val TIMESTAMP_FIELD = "timestamp"
-        const val TRIGGER_ID_FIELD = "trigger_id"
-        const val TRIGGER_NAME_FIELD = "trigger_name"
         const val NO_ID = ""
 
         @JvmStatic @JvmOverloads
         @Throws(IOException::class)
-        fun parse(xcp: XContentParser, id: String = NO_ID): Finding {
-            lateinit var relatedDocId: String
+        fun parse(xcp: XContentParser): Finding {
+            var id: String = NO_ID
+            val relatedDocIds: MutableList<String> = mutableListOf()
             lateinit var monitorId: String
             lateinit var monitorName: String
             lateinit var index: String
-            var queryId: String = NO_ID
-            val queryTags: MutableList<String> = mutableListOf()
-            lateinit var severity: String
+            val queries: MutableList<DocLevelQuery> = mutableListOf()
             lateinit var timestamp: Instant
-            lateinit var triggerId: String
-            lateinit var triggerName: String
 
             ensureExpectedToken(XContentParser.Token.START_OBJECT, xcp.currentToken(), xcp)
             while (xcp.nextToken() != XContentParser.Token.END_OBJECT) {
@@ -129,36 +104,36 @@ class Finding(
                 xcp.nextToken()
 
                 when (fieldName) {
-                    RELATED_DOC_ID_FIELD -> relatedDocId = xcp.text()
+                    FINDING_ID_FIELD -> id = xcp.text()
+                    RELATED_DOC_IDS_FIELD -> {
+                        ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp)
+                        while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
+                            relatedDocIds.add(xcp.text())
+                        }
+                    }
                     MONITOR_ID_FIELD -> monitorId = xcp.text()
                     MONITOR_NAME_FIELD -> monitorName = xcp.text()
                     INDEX_FIELD -> index = xcp.text()
-                    QUERY_ID_FIELD -> queryId = xcp.text()
-                    QUERY_TAGS_FIELD -> {
+                    QUERIES_FIELD -> {
                         ensureExpectedToken(XContentParser.Token.START_ARRAY, xcp.currentToken(), xcp)
                         while (xcp.nextToken() != XContentParser.Token.END_ARRAY) {
-                            queryTags.add(xcp.text())
+                            queries.add(DocLevelQuery.parse(xcp))
                         }
                     }
-                    SEVERITY_FIELD -> severity = xcp.text()
-                    TIMESTAMP_FIELD -> timestamp = requireNotNull(xcp.instant())
-                    TRIGGER_ID_FIELD -> triggerId = xcp.text()
-                    TRIGGER_NAME_FIELD -> triggerName = xcp.text()
+                    TIMESTAMP_FIELD -> {
+                        timestamp = requireNotNull(xcp.instant())
+                    }
                 }
             }
 
             return Finding(
                 id = id,
-                relatedDocId = relatedDocId,
+                relatedDocIds = relatedDocIds,
                 monitorId = monitorId,
                 monitorName = monitorName,
                 index = index,
-                queryId = queryId,
-                queryTags = queryTags,
-                severity = severity,
-                timestamp = timestamp,
-                triggerId = triggerId,
-                triggerName = triggerName
+                docLevelQueries = queries,
+                timestamp = timestamp
             )
         }
 

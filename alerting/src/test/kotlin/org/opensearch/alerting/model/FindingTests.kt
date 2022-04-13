@@ -18,26 +18,22 @@ class FindingTests : OpenSearchTestCase() {
 
         // THEN
         assertEquals("Template args 'id' field does not match:", templateArgs[Finding.FINDING_ID_FIELD], finding.id)
-        assertEquals("Template args 'logEvent' field does not match:", templateArgs[Finding.RELATED_DOC_ID_FIELD], finding.relatedDocId)
+        assertEquals(
+            "Template args 'relatedDocIds' field does not match:",
+            templateArgs[Finding.RELATED_DOC_IDS_FIELD],
+            finding.relatedDocIds
+        )
         assertEquals("Template args 'monitorId' field does not match:", templateArgs[Finding.MONITOR_ID_FIELD], finding.monitorId)
         assertEquals(
             "Template args 'monitorName' field does not match:",
             templateArgs[Finding.MONITOR_NAME_FIELD],
             finding.monitorName
         )
-        assertEquals("Template args 'queryId' field does not match:", templateArgs[Finding.QUERY_ID_FIELD], finding.queryId)
-        assertEquals("Template args 'queryTags' field does not match:", templateArgs[Finding.QUERY_TAGS_FIELD], finding.queryTags)
-        assertEquals("Template args 'severity' field does not match:", templateArgs[Finding.SEVERITY_FIELD], finding.severity)
+        assertEquals("Template args 'queries' field does not match:", templateArgs[Finding.QUERIES_FIELD], finding.docLevelQueries)
         assertEquals(
             "Template args 'timestamp' field does not match:",
             templateArgs[Finding.TIMESTAMP_FIELD],
             finding.timestamp.toEpochMilli()
-        )
-        assertEquals("Template args 'triggerId' field does not match:", templateArgs[Finding.TRIGGER_ID_FIELD], finding.triggerId)
-        assertEquals(
-            "Template args 'triggerName' field does not match:",
-            templateArgs[Finding.TRIGGER_NAME_FIELD],
-            finding.triggerName
         )
     }
 }
