@@ -18,6 +18,15 @@
             }
           }
         },
+        "owner": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 256
+            }
+          }
+        },
         "monitor_type": {
           "type": "keyword"
         },
@@ -113,6 +122,46 @@
                 "query": {
                   "type": "object",
                   "enabled": false
+                }
+              }
+            }
+          }
+        },
+        "data_sources": {
+          "properties": {
+            "alerts_index": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "findings_index": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "query_index": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
+                }
+              }
+            },
+            "query_index_mapping": {
+              "type": "text",
+              "fields": {
+                "keyword": {
+                  "type": "keyword",
+                  "ignore_above": 256
                 }
               }
             }
